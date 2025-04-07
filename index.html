@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Scarabeo Chat Game</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/tmi.js/1.8.5/tmi.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5"></script>
   <style>
     body {
       margin: 0;
@@ -17,10 +17,22 @@
       justify-content: center;
       height: 100vh;
     }
-    #letters { font-size: 3em; margin-bottom: 1em; }
-    #leaderboard { font-size: 1.5em; max-width: 600px; width: 90%; }
-    .entry { margin: 0.2em 0; }
-    #timer { font-size: 2em; margin-bottom: 1em; }
+    #letters {
+      font-size: 3em;
+      margin-bottom: 1em;
+    }
+    #leaderboard {
+      font-size: 1.5em;
+      max-width: 600px;
+      width: 90%;
+    }
+    .entry {
+      margin: 0.2em 0;
+    }
+    #timer {
+      font-size: 2em;
+      margin-bottom: 1em;
+    }
   </style>
 </head>
 <body>
@@ -29,7 +41,10 @@
   <div id="leaderboard"></div>
 
   <script>
-    const client = new tmi.Client({ channels: ['dipone'] });
+    const client = new tmi.Client({
+      channels: [ 'dipi84' ] // 👈 il tuo canale Twitch
+    });
+
     client.connect();
 
     const ROUND_TIME = 90;
@@ -44,29 +59,30 @@
     const timerDisplay = document.getElementById('timer');
 
     function generateLetters() {
-      const alphabet = \"ABCDEFGHIJKLMNOPQRSTUVWXYZ\";
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       let letters = [];
       while (letters.length < 7) {
-        letters.push(alphabet[Math.floor(Math.random() * alphabet.length)]);
+        const letter = alphabet[Math.floor(Math.random() * alphabet.length)];
+        letters.push(letter);
       }
       return letters;
     }
 
     function canFormWord(word, letters) {
-      let temp = [...letters];
-      for (let c of word.toUpperCase()) {
-        let i = temp.indexOf(c);
-        if (i === -1) return false;
-        temp.splice(i, 1);
+      let tempLetters = [...letters];
+      for (let char of word.toUpperCase()) {
+        let index = tempLetters.indexOf(char);
+        if (index === -1) return false;
+        tempLetters.splice(index, 1);
       }
       return true;
     }
 
     function updateLeaderboard() {
       leaderboard.innerHTML = '<strong>🏆 Classifica:</strong><br>';
-      let sorted = Object.entries(scores).sort((a,b) => b[1]-a[1]);
+      let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
       for (let [user, score] of sorted.slice(0, 5)) {
-        leaderboard.innerHTML += `<div class='entry'>${user}: ${score} punti</div>`;
+        leaderboard.innerHTML += `<div class="entry">${user}: ${score} punti</div>`;
       }
     }
 
@@ -83,27 +99,29 @@
         if (remaining <= 0) {
           clearInterval(interval);
           roundActive = false;
-          timerDisplay.textContent = `⏰ Fine round! Scrivi !startscarabeo in chat per ricominciare.`;
+          timerDisplay.textContent = `⏰ Fine round! Scrivi !startscarabeo per iniziare.`;
         }
       }, 1000);
     }
 
-    client.on('message', (channel, tags, msg, self) => {
+    client.on('message', (channel, tags, message, self) => {
       const username = tags['display-name'] || tags.username;
-      const text = msg.trim().toLowerCase();
+      const msg = message.trim().toLowerCase();
 
-      if (text === '!startscarabeo' && !roundActive) {
+      if (msg === '!startscarabeo' && !roundActive) {
         startRound();
         return;
       }
 
-      if (roundActive && text.startsWith('!parola ')) {
-        const parola = text.split(' ')[1]?.toUpperCase();
-        if (!parola || parola.length < 3 || usedWords.has(parola)) return;
+      if (roundActive && msg.startsWith('!parola ')) {
+        const parola = msg.split(' ')[1]?.toUpperCase();
+        if (!parola || parola.length < 3) return;
+        if (usedWords.has(parola)) return;
         if (!canFormWord(parola, currentLetters)) return;
 
         usedWords.add(parola);
-        scores[username] = (scores[username] || 0) + parola.length;
+        if (!scores[username]) scores[username] = 0;
+        scores[username] += parola.length;
         updateLeaderboard();
       }
     });
