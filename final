@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scarabeo Chat Game</title>
+  <script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Courier New', monospace;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+      color: #fff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #letters {
+      font-size: 3em;
+      margin-bottom: 1em;
+    }
+    #leaderboard {
+      font-size: 1.5em;
+      max-width: 600px;
+      width: 90%;
+    }
+    .entry {
+      margin: 0.2em 0;
+    }
+    #timer {
+      font-size: 2em;
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+<body>
+  <div id="timer"></div>
+  <div id="letters"></div>
+  <div id="leaderboard"></div>
+
+  <script>
+    const client = new tmi.Client({
+      channels: [ 'TUO_CANALE_TWITCH' ] // 👈 Sostituisci con il tuo canale
+    });
+
+    client.connect();
+
+    const ROUND_TIME = 90;
+    let roundActive = false;
+    let remaining = ROUND_TIME;
+    let currentLetters = [];
+    let scores = {};
+    let usedWords = new Set();
+
+    const letterDisplay = document.getElementById('letters');
+    const leaderboard = document.getElementById('leaderboard');
+    const timerDisplay = document.getElementById('timer');
+
+    function generateLetters() {
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      let letters = [];
+      while (letters.length < 7) {
+        const letter = alphabet[Math.floor(Math.random() * alphabet.length)];
+        letters.push(letter);
+      }
+      return letters;
+    }
+
+    function canFormWord(word, letters) {
+      let tempLetters = [...letters];
+      for (let char of word.toUpperCase()) {
+        let index = tempLetters.indexOf(char);
+        if (index === -1) return false;
+        tempLetters.splice(index, 1);
+      }
+      return true;
+    }
+
+    function updateLeaderboard() {
+      leaderboard.innerHTML = '<strong>🏆 Classifica:</strong><br>';
+      let sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+      for (let [user, score] of sorted.slice(0, 5)) {
+        leaderboard.innerHTML += `<div class="entry">${user}: ${score} punti</div>`;
+      }
+    }
+
+    function startRound() {
+      currentLetters = generateLetters();
+      letterDisplay.textContent = currentLetters.join(' ');
+      remaining = ROUND_TIME;
+      usedWords.clear();
+      roundActive = true;
+
+      const interval = setInterval(() => {
+        remaining--;
+        timerDisplay.textContent = `Tempo rimasto: ${remaining}s`;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          roundActive = false;
+          timerDisplay.textContent = `⏰ Fine round! Scrivi !startscarabeo per iniziare.`;
+        }
+      }, 1000);
+    }
+
+    client.on('message', (channel, tags, message, self) => {
+      const username = tags['display-name'] || tags.username;
+      const msg = message.trim().toLowerCase();
+
+      if (msg === '!startscarabeo' && !roundActive) {
+        startRound();
+        return;
+      }
+
+      if (roundActive && msg.startsWith('!parola ')) {
+        const parola = msg.split(' ')[1]?.toUpperCase();
+        if (!parola || parola.length < 3) return;
+        if (usedWords.has(parola)) return;
+        if (!canFormWord(parola, currentLetters)) return;
+
+        usedWords.add(parola);
+        if (!scores[username]) scores[username] = 0;
+        scores[username] += parola.length;
+        updateLeaderboard();
+      }
+    });
+
+    timerDisplay.textContent = `Scrivi !startscarabeo in chat per iniziare!`;
+  </script>
+</body>
+</html>
